@@ -1,7 +1,7 @@
 // group ipv4/ipv6 list from stdout into subnets
 // each line must contain either ip or ip/bitcount
-// valid ip/bitcount are passed through without modification
-// ip are groupped into subnets
+// valid ip/bitcount and ip1-ip2 are passed through without modification
+// ips are groupped into subnets
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -195,7 +195,7 @@ void parse_params(int argc, char *argv[])
 
 int main(int argc, char **argv)
 {
-	char str[256];
+	char str[256],d;
 	uint32_t ipct = 0, iplist_size = 0, pos = 0, p, zct, ip_ct, pos_end;
 
 	parse_params(argc, argv);
@@ -208,20 +208,29 @@ int main(int argc, char **argv)
 		while (fgets(str, sizeof(str), stdin))
 		{
 			rtrim(str);
-			zct = 128;
-			if (s = strchr(str, '/'))
+			d = 0;
+			if ((s = strchr(str, '/')) || (s = strchr(str, '-')))
 			{
-				sscanf(s + 1, "%u", &zct);
+				d = *s;
 				*s = '\0';
 			}
 			if (inet_pton(AF_INET6, str, &a))
 			{
-				if (zct < 128)
+				if (d=='/')
 				{
 					// we have subnet ip6/y
 					// output it as is
-					*s = '/';
-					printf("%s\n", str);
+					*s = d;
+					if (sscanf(s + 1, "%u", &zct) && zct!=128)
+					{
+						if (zct<128) printf("%s\n", str);
+						continue;
+					}
+				}
+				else if (d=='-')
+				{
+					*s = d;
+					if (inet_pton(AF_INET6, s+1, &a)) printf("%s\n", str);
 					continue;
 				}
 				if (ipct >= iplist_size)
@@ -268,7 +277,7 @@ int main(int argc, char **argv)
 				if (ip_ct == 1) break;
 				if (ip_ct >= params.v6_threshold)
 				{
-					// network found. but is there smaller network with the same ip_ct ? dont do carpet bombing is possible, use smaller subnets
+					// network found. but is there smaller network with the same ip_ct ? dont do carpet bombing if possible, use smaller subnets
 					if (!ip_ct_best || ip_ct == ip_ct_best)
 					{
 						ip_ct_best = ip_ct;
@@ -290,13 +299,21 @@ int main(int argc, char **argv)
 	}
 	else // ipv4
 	{
-		uint32_t u1, u2, u3, u4, ip;
+		uint32_t u1,u2,u3,u4, u11,u22,u33,u44, ip;
 		uint32_t *iplist = NULL, *iplist_new;
 		uint32_t i, subnet_ct, end_ip;
 
 		while (fgets(str, sizeof(str), stdin))
 		{
-			if ((i = sscanf(str, "%u.%u.%u.%u/%u", &u1, &u2, &u3, &u4, &zct)) >= 4 && !(u1 & 0xFFFFFF00) && !(u2 & 0xFFFFFF00) && !(u3 & 0xFFFFFF00) && !(u4 & 0xFFFFFF00))
+			if ((i = sscanf(str, "%u.%u.%u.%u-%u.%u.%u.%u", &u1, &u2, &u3, &u4, &u11, &u22, &u33, &u44)) >= 8 && 
+				!(u1 & 0xFFFFFF00) && !(u2 & 0xFFFFFF00) && !(u3 & 0xFFFFFF00) && !(u4 & 0xFFFFFF00) &&
+				!(u11 & 0xFFFFFF00) && !(u22 & 0xFFFFFF00) && !(u33 & 0xFFFFFF00) && !(u44 & 0xFFFFFF00))
+			{
+				printf("%u.%u.%u.%u-%u.%u.%u.%u\n", u1, u2, u3, u4, u11, u22, u33, u44);
+			}
+			else
+			if ((i = sscanf(str, "%u.%u.%u.%u/%u", &u1, &u2, &u3, &u4, &zct)) >= 4 &&
+				!(u1 & 0xFFFFFF00) && !(u2 & 0xFFFFFF00) && !(u3 & 0xFFFFFF00) && !(u4 & 0xFFFFFF00))
 			{
 				if (i == 5 && zct != 32)
 				{
@@ -346,7 +363,7 @@ int main(int argc, char **argv)
 				if (ip_ct == 1) break;
 				if (ip_ct >= (subnet_ct*params.pctmult / params.pctdiv))
 				{
-					// network found. but is there smaller network with the same ip_ct ? dont do carpet bombing is possible, use smaller subnets
+					// network found. but is there smaller network with the same ip_ct ? dont do carpet bombing if possible, use smaller subnets
 					if (!ip_ct_best || ip_ct == ip_ct_best)
 					{
 						ip_ct_best = ip_ct;
