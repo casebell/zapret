@@ -79,18 +79,22 @@ static uint32_t unique6(struct in6_addr *pu, uint32_t ct)
 }
 static void mask_from_bitcount6(uint32_t zct, struct in6_addr *a)
 {
-	if (zct > 128) zct = 128;
-	int32_t n = zct < 128 ? (127 - zct) >> 3 : -1;
-	for (int32_t i = 0; i < sizeof(a->s6_addr); i++)
-		a->s6_addr[i] = i > n ? 0x00 : i < n ? 0xFF : ~((1 << (zct & 7)) - 1);
+	if (zct >= 128)
+		memset(a->s6_addr,0x00,16);
+	else
+	{
+		int32_t n = (127 - zct) >> 3;
+		memset(a->s6_addr,0xFF,n);
+		memset(a->s6_addr+n,0x00,16-n);
+		a->s6_addr[n] = ~((1 << (zct & 7)) - 1);
+	}
 }
 // result = a & b
 static void ip6_and(const struct in6_addr *a, const struct in6_addr *b, struct in6_addr *result)
 {
-	for (uint8_t i = 0; i < (sizeof(a->s6_addr) / sizeof(uint32_t)); i++)
-		((uint32_t*)result->s6_addr)[i] = ((uint32_t*)a->s6_addr)[i] & ((uint32_t*)b->s6_addr)[i];
+	((uint64_t*)result->s6_addr)[0] = ((uint64_t*)a->s6_addr)[0] & ((uint64_t*)b->s6_addr)[0];
+	((uint64_t*)result->s6_addr)[1] = ((uint64_t*)a->s6_addr)[1] & ((uint64_t*)b->s6_addr)[1];
 }
-
 
 static void rtrim(char *s)
 {
