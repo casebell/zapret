@@ -9,7 +9,7 @@ enum splithttpreq { split_none = 0, split_method, split_host };
 
 struct params_s
 {
-	char bindaddr[64],bindiface[IFNAMSIZ];
+	char bindaddr[64],bindiface[IF_NAMESIZE];
 	bool bind_if6;
 	bool bindll,bindll_force;
 	int bind_wait_ifup,bind_wait_ip,bind_wait_ip_ll;
