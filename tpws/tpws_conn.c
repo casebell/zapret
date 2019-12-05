@@ -682,6 +682,13 @@ bool check_connection_attempt(tproxy_conn_t *conn, int efd)
 		return true;
 	}
 
+	if (!conn->partner)
+	{
+		// local leg died ?
+		VPRINT("check_connection_attempt : fd=%d (remote) : local leg died. failing this connection attempt.", conn->fd)
+		return false;
+	}
+
 	// check the connection was sucessfull. it means its not in in SO_ERROR state
 	if(getsockopt(conn->fd, SOL_SOCKET, SO_ERROR, &errn, &optlen) == -1)
 	{
