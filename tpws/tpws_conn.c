@@ -650,7 +650,7 @@ static tproxy_conn_t* add_tcp_connection(int efd, struct tailhead *conn_list,
 	//Proxy mode : I need to service proxy protocol
 	// remote connection not started until proxy handshake is complete
 
-	if (!epoll_set(conn, proxy_type==CONN_TYPE_TRANSPARENT ? 0 : (EPOLLIN|EPOLLRDHUP)))
+	if (!epoll_set(conn, proxy_type==CONN_TYPE_TRANSPARENT ? EPOLLRDHUP : (EPOLLIN|EPOLLRDHUP)))
 	{
 		free_conn(conn->partner);
 		free_conn(conn);
