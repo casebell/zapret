@@ -1179,7 +1179,7 @@ static bool read_all_and_buffer(tproxy_conn_t *conn, int buffer_number)
 
 static bool conn_timed_out(tproxy_conn_t *conn)
 {
-	if (conn->orphan_since)
+	if (conn->orphan_since && conn->state==CONN_UNAVAILABLE)
 	{
 		time_t timediff = time(NULL) - conn->orphan_since;
 		return timediff>=params.max_orphan_time;
@@ -1218,7 +1218,7 @@ static void conn_close_with_partner_check(struct tailhead *conn_list, struct tai
 	{ 
 		if (!conn_has_unsent(conn->partner))
 			close_tcp_conn(conn_list,close_list,conn->partner);
-		else if (conn->partner->remote && conn->partner->state==CONN_UNAVAILABLE)
+		else if (conn->partner->remote && conn->partner->state==CONN_UNAVAILABLE && params.max_orphan_time)
 			// time out only remote legs that are not connected yet
 			conn->partner->orphan_since = time(NULL);
 	}
