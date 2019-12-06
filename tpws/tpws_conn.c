@@ -682,7 +682,7 @@ static bool check_connection_attempt(tproxy_conn_t *conn, int efd)
 		return true;
 	}
 
-	if (!conn->partner)
+	if (!conn_partner_alive(conn))
 	{
 		// local leg died ?
 		VPRINT("check_connection_attempt : fd=%d (remote) : local leg died. failing this connection attempt.", conn->fd)
