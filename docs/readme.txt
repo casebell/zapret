@@ -241,6 +241,11 @@ tpws - это transparent proxy.
  --socks		; вместо прозрачного прокси реализовать socks4/5 proxy
  --no-resolve		; запретить ресолвинг имен через socks5
  --port=<port>		; на каком порту слушать
+ --maxconn=<max_connections> ; максимальное количество соединений от клиентов к прокси
+ --maxfiles=<max_open_files>    ; макс количество файловых дескрипторов (setrlimit). мин требование (X*connections+16), где X=6 в tcp proxy mode, X=4 в режиме тамперинга.
+				; стоит сделать запас с коэффициентом как минимум 1.5.  если у вас много попыток соединения, на которые не отвечают (torrent), установите коэффициент 5-10
+				; по умолчанию maxfiles (X*connections)*1.5+16
+
  --local-rcvbuf=<bytes> ; SO_RCVBUF для соединений client-proxy
  --local-sndbuf=<bytes> ; SO_SNDBUF для соединений client-proxy
  --remote-rcvbuf=<bytes> ; SO_RCVBUF для соединений proxy-target

@@ -215,6 +215,9 @@ tpws is transparent proxy.
  --skip-nodelay			; do not set TCP_NODELAY for outgoing connections. incompatible with split.
  --no-resolve			; disable socks5 remote dns
  --maxconn=<max_connections>	; max number of local legs
+ --maxfiles=<max_open_files>    ; max file descriptors (setrlimit). min requirement is (X*connections+16), where X=6 in tcp proxy mode, X=4 in tampering mode.
+				; its worth to make a reserve with 1.5 multiplier. if your software makes lots of unreplied connection attempts (torrent), use multiplier 5-10
+				; by default maxfiles is   (X*connections)*1.5+16
  --hostlist=<filename>          ; only act on host in the list (one host per line, subdomains auto apply)
  --split-http-req=method|host	; split http request at specified logical position
  --split-pos=<numeric_offset>   ; split at specified pos. invalidates split-http-req.
