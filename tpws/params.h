@@ -20,7 +20,7 @@ struct params_s
 	gid_t gid;
 	bool daemon;
 	uint16_t port;
-	int maxconn,maxfiles;
+	int maxconn,maxfiles,max_orphan_time;
 	int local_rcvbuf,local_sndbuf,remote_rcvbuf,remote_sndbuf;
 
 	bool tamper; // any tamper option is set

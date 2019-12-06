@@ -33,7 +33,7 @@
 struct params_s params;
 
 bool bHup = false;
-void onhup(int sig)
+static void onhup(int sig)
 {
 	printf("HUP received !\n");
 	if (params.hostlist)
@@ -59,7 +59,7 @@ void dohup()
 
 
 
-int8_t block_sigpipe()
+static int8_t block_sigpipe()
 {
 	sigset_t sigset;
 	memset(&sigset, 0, sizeof(sigset));
@@ -84,7 +84,7 @@ int8_t block_sigpipe()
 }
 
 
-bool is_interface_online(const char *ifname)
+static bool is_interface_online(const char *ifname)
 {
 	struct ifreq ifr;
 	int sock;
@@ -100,7 +100,7 @@ bool is_interface_online(const char *ifname)
 }
 
 
-void exithelp()
+static void exithelp()
 {
 	printf(
 		" --bind-addr=<ipv4_addr>|<ipv6_addr>\n"
@@ -120,6 +120,7 @@ void exithelp()
 		" --port=<port>\n"
 		" --maxconn=<max_connections>\n"
 		" --maxfiles=<max_open_files>\t; should be at least (X*connections+16), where X=6 in tcp proxy mode, X=4 in tampering mode\n"
+		" --max-orphan-time=<sec>\t; if local leg sends something and closes and remote leg is still connecting then cancel connection attempt after N seconds\n"
 		" --daemon\t\t\t; daemonize\n"
 		" --pidfile=<filename>\t\t; write pid to file\n"
 		" --user=<username>\t\t; drop root privs\n"
@@ -141,7 +142,7 @@ void exithelp()
 	);
 	exit(1);
 }
-void cleanup_params()
+static void cleanup_params()
 {
 	if (params.hostlist)
 	{
@@ -149,12 +150,12 @@ void cleanup_params()
 		params.hostlist = NULL;
 	}
 }
-void exithelp_clean()
+static void exithelp_clean()
 {
 	cleanup_params();
 	exithelp();
 }
-void exit_clean(int code)
+static void exit_clean(int code)
 {
 	cleanup_params();
 	exit(code);
@@ -167,6 +168,7 @@ void parse_params(int argc, char *argv[])
 	memset(&params, 0, sizeof(params));
 	memcpy(params.hostspell, "host", 4); // default hostspell
 	params.maxconn = DEFAULT_MAX_CONN;
+	params.max_orphan_time = DEFAULT_MAX_ORPHAN_TIME;
 
 	const struct option long_options[] = {
 		{ "help",no_argument,0,0 },// optidx=0
@@ -184,27 +186,28 @@ void parse_params(int argc, char *argv[])
 		{ "uid",required_argument,0,0 },// optidx=12
 		{ "maxconn",required_argument,0,0 },// optidx=13
 		{ "maxfiles",required_argument,0,0 },// optidx=14
-		{ "hostcase",no_argument,0,0 },// optidx=15
-		{ "hostspell",required_argument,0,0 },// optidx=16
-		{ "hostdot",no_argument,0,0 },// optidx=17
-		{ "hostnospace",no_argument,0,0 },// optidx=18
-		{ "hostpad",required_argument,0,0 },// optidx=19
-		{ "split-http-req",required_argument,0,0 },// optidx=20
-		{ "split-pos",required_argument,0,0 },// optidx=21
-		{ "methodspace",no_argument,0,0 },// optidx=22
-		{ "methodeol",no_argument,0,0 },// optidx=23
-		{ "hosttab",no_argument,0,0 },// optidx=24
-		{ "unixeol",no_argument,0,0 },// optidx=25
-		{ "hostlist",required_argument,0,0 },// optidx=26
-		{ "pidfile",required_argument,0,0 },// optidx=27
-		{ "debug",optional_argument,0,0 },// optidx=28
-		{ "local-rcvbuf",required_argument,0,0 },// optidx=29
-		{ "local-sndbuf",required_argument,0,0 },// optidx=30
-		{ "remote-rcvbuf",required_argument,0,0 },// optidx=31
-		{ "remote-sndbuf",required_argument,0,0 },// optidx=32
-		{ "socks",no_argument,0,0 },// optidx=33
-		{ "no-resolve",no_argument,0,0 },// optidx=34
-		{ "skip-nodelay",no_argument,0,0 },// optidx=35
+		{ "max-orphan-time",required_argument,0,0 },// optidx=15
+		{ "hostcase",no_argument,0,0 },// optidx=16
+		{ "hostspell",required_argument,0,0 },// optidx=17
+		{ "hostdot",no_argument,0,0 },// optidx=18
+		{ "hostnospace",no_argument,0,0 },// optidx=19
+		{ "hostpad",required_argument,0,0 },// optidx=20
+		{ "split-http-req",required_argument,0,0 },// optidx=21
+		{ "split-pos",required_argument,0,0 },// optidx=22
+		{ "methodspace",no_argument,0,0 },// optidx=23
+		{ "methodeol",no_argument,0,0 },// optidx=24
+		{ "hosttab",no_argument,0,0 },// optidx=25
+		{ "unixeol",no_argument,0,0 },// optidx=26
+		{ "hostlist",required_argument,0,0 },// optidx=27
+		{ "pidfile",required_argument,0,0 },// optidx=28
+		{ "debug",optional_argument,0,0 },// optidx=29
+		{ "local-rcvbuf",required_argument,0,0 },// optidx=30
+		{ "local-sndbuf",required_argument,0,0 },// optidx=31
+		{ "remote-rcvbuf",required_argument,0,0 },// optidx=32
+		{ "remote-sndbuf",required_argument,0,0 },// optidx=33
+		{ "socks",no_argument,0,0 },// optidx=34
+		{ "no-resolve",no_argument,0,0 },// optidx=35
+		{ "skip-nodelay",no_argument,0,0 },// optidx=36
 		{ NULL,0,NULL,0 }
 	};
 	while ((v = getopt_long_only(argc, argv, "", long_options, &option_index)) != -1)
@@ -297,11 +300,19 @@ void parse_params(int argc, char *argv[])
 				exit_clean(1);
 			}
 			break;
-		case 15: /* hostcase */
+		case 15: /* max-orphan-time */
+			params.max_orphan_time = atoi(optarg);
+			if (params.max_orphan_time < 0)
+			{
+				fprintf(stderr, "bad max_orphan_time\n");
+				exit_clean(1);
+			}
+			break;
+		case 16: /* hostcase */
 			params.hostcase = true;
 			params.tamper = true;
 			break;
-		case 16: /* hostspell */
+		case 17: /* hostspell */
 			if (strlen(optarg) != 4)
 			{
 				fprintf(stderr, "hostspell must be exactly 4 chars long\n");
@@ -311,19 +322,19 @@ void parse_params(int argc, char *argv[])
 			memcpy(params.hostspell, optarg, 4);
 			params.tamper = true;
 			break;
-		case 17: /* hostdot */
+		case 18: /* hostdot */
 			params.hostdot = true;
 			params.tamper = true;
 			break;
-		case 18: /* hostnospace */
+		case 19: /* hostnospace */
 			params.hostnospace = true;
 			params.tamper = true;
 			break;
-		case 19: /* hostpad */
+		case 20: /* hostpad */
 			params.hostpad = atoi(optarg);
 			params.tamper = true;
 			break;
-		case 20: /* split-http-req */
+		case 21: /* split-http-req */
 			if (!strcmp(optarg, "method"))
 				params.split_http_req = split_method;
 			else if (!strcmp(optarg, "host"))
@@ -335,7 +346,7 @@ void parse_params(int argc, char *argv[])
 			}
 			params.tamper = true;
 			break;
-		case 21: /* split-pos */
+		case 22: /* split-pos */
 			i = atoi(optarg);
 			if (i)
 				params.split_pos = i;
@@ -346,55 +357,55 @@ void parse_params(int argc, char *argv[])
 			}
 			params.tamper = true;
 			break;
-		case 22: /* methodspace */
+		case 23: /* methodspace */
 			params.methodspace = true;
 			params.tamper = true;
 			break;
-		case 23: /* methodeol */
+		case 24: /* methodeol */
 			params.methodeol = true;
 			params.tamper = true;
 			break;
-		case 24: /* hosttab */
+		case 25: /* hosttab */
 			params.hosttab = true;
 			params.tamper = true;
 			break;
-		case 25: /* unixeol */
+		case 26: /* unixeol */
 			params.unixeol = true;
 			params.tamper = true;
 			break;
-		case 26: /* hostlist */
+		case 27: /* hostlist */
 			if (!LoadHostList(&params.hostlist, optarg))
 				exit_clean(1);
 			strncpy(params.hostfile,optarg,sizeof(params.hostfile));
 			params.hostfile[sizeof(params.hostfile)-1]='\0';
 			params.tamper = true;
 			break;
-		case 27: /* pidfile */
+		case 28: /* pidfile */
 			strncpy(params.pidfile,optarg,sizeof(params.pidfile));
 			params.pidfile[sizeof(params.pidfile)-1]='\0';
 			break;
-		case 28:
+		case 29:
 			params.debug = optarg ? atoi(optarg) : 1;
 			break;
-		case 29: /* local-rcvbuf */
+		case 30: /* local-rcvbuf */
 			params.local_rcvbuf = atoi(optarg)/2;
 			break;
-		case 30: /* local-sndbuf */
+		case 31: /* local-sndbuf */
 			params.local_sndbuf = atoi(optarg)/2;
 			break;
-		case 31: /* remote-rcvbuf */
+		case 32: /* remote-rcvbuf */
 			params.remote_rcvbuf = atoi(optarg)/2;
 			break;
-		case 32: /* remote-sndbuf */
+		case 33: /* remote-sndbuf */
 			params.remote_sndbuf = atoi(optarg)/2;
 			break;
-		case 33: /* socks */
+		case 34: /* socks */
 			params.proxy_type = CONN_TYPE_SOCKS;
 			break;
-		case 34: /* no-resolve */
+		case 35: /* no-resolve */
 			params.no_resolve = true;
 			break;
-		case 35: /* skip-nodelay */
+		case 36: /* skip-nodelay */
 			params.skip_nodelay = true;
 			break;
 		}
@@ -411,7 +422,7 @@ void parse_params(int argc, char *argv[])
 	}
 }
 
-void daemonize()
+static void daemonize()
 {
 	int pid,fd;
 
@@ -440,7 +451,7 @@ void daemonize()
 	/* stderror */
 }
 
-bool setpcap(cap_value_t *caps,int ncaps)
+static bool setpcap(cap_value_t *caps,int ncaps)
 {
 	cap_t capabilities;
 	
@@ -461,7 +472,7 @@ bool setpcap(cap_value_t *caps,int ncaps)
 	cap_free(capabilities);
 	return true;
 }
-int getmaxcap()
+static int getmaxcap()
 {
 	int maxcap = CAP_LAST_CAP;
 	FILE *F = fopen("/proc/sys/kernel/cap_last_cap","r");
@@ -473,7 +484,7 @@ int getmaxcap()
 	return maxcap;
 	
 }
-bool dropcaps()
+static bool dropcaps()
 {
 	// must have CAP_SETPCAP at the end. its required to clear bounding set
 	cap_value_t cap_values[] = {CAP_SETPCAP};
@@ -499,7 +510,7 @@ bool dropcaps()
 	}
 	return true;
 }
-bool droproot()
+static bool droproot()
 {
 	if (params.uid || params.gid)
 	{
@@ -523,7 +534,7 @@ bool droproot()
 }
 
 
-bool writepid(const char *filename)
+static bool writepid(const char *filename)
 {
 	FILE *F;
 	if (!(F=fopen(filename,"w")))
@@ -535,7 +546,7 @@ bool writepid(const char *filename)
 
 
 
-bool find_listen_addr(struct sockaddr_storage *salisten, bool bindll, int *if_index)
+static bool find_listen_addr(struct sockaddr_storage *salisten, bool bindll, int *if_index)
 {
 	struct ifaddrs *addrs,*a;
 	bool found=false;
@@ -579,7 +590,7 @@ bool find_listen_addr(struct sockaddr_storage *salisten, bool bindll, int *if_in
 	return found;
 }
 
-bool set_ulimit()
+static bool set_ulimit()
 {
 	FILE *F;
 	int fdmax,fdmin_system,n,cur_lim=0;
