@@ -5,7 +5,9 @@ EXEDIR=$(dirname "$SCRIPT")
 
 . "$EXEDIR/def.sh"
 
-getexclude
+# useful in case ipban set is used in custom scripts
+getuser
+"$EXEDIR/create_ipset.sh"
 
 ZREESTR="$TMPDIR/zapret.txt"
 #ZURL=https://reestr.rublacklist.net/api/current
